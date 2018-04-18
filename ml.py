@@ -3,8 +3,6 @@ import numpy as np
 from colorama import init, Fore, Back, Style
 init()
 
-print(tf.__version__)
-
 from tensorflow.contrib.learn.python.learn.datasets import base
 
 # Data files
@@ -42,11 +40,42 @@ classifier = tf.estimator.LinearClassifier(
 
 def input_fn(dataset):
   def _fn():
-    features = { 
-      feature_name: tf.constant(dataset.data) 
-    }
+    print(Fore.GREEN + 'feature_name = %s' % tf.constant(dataset.data))
+    features = { feature_name: tf.constant(dataset.data) }
+    print(Fore.GREEN + 'label = %s' % tf.constant(dataset.target))
     label = tf.constant(dataset.target)
+    print(Fore.WHITE)
     return features, label
   return _fn
+# raw data -> input function -> feature columns -> model
 
 # Fit model.
+classifier.train(
+  steps = 1000,
+  input_fn = input_fn(training_set),
+)
+print('fit done')
+
+# Evaluate accuracy
+accuracy_score = classifier.evaluate(
+  input_fn = input_fn(test_set),
+  steps = 100,
+)
+
+print(accuracy_score)
+
+# Export the modal for serving
+feature_spec = {
+  'flower_features': tf.FixedLenFeature(
+    shape = [4],
+    dtype = np.float32,
+  )
+}
+serving_fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(feature_spec)
+
+print('initiate export')
+classifier.export_savedmodel(
+  export_dir_base = './tmp/iris_model/export',
+  serving_input_receiver_fn = serving_fn,
+)
+print('Export successfully')
